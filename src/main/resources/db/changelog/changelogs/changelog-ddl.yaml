@@ -1,0 +1,53 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1.0.0
+      author: Melle
+      changes:
+        - createTable:
+            tableName: foo
+            columns:
+              - column:
+                  name: id
+                  autoIncrement: true
+                  type: int
+              - column:
+                  name: name
+                  type: varchar(256)
+        - addPrimaryKey:
+            tableName: foo
+            columnNames: id
+            constraintName: pk_foo
+
+  - changeSet:
+      id: 1.0.1
+      author: Melle
+      changes:
+        - createTable:
+            tableName: bar
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+              - column:
+                  name: foo_id
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(256)
+
+        - addPrimaryKey:
+            tableName: bar
+            columnNames: id
+            constraintName: pk_bar
+
+        - addForeignKeyConstraint:
+            baseColumnNames: foo_id
+            baseTableName: bar
+            constraintName: fk_foo_bar
+            onDelete: CASCADE
+            onUpdate: RESTRICT
+            referencedColumnNames: id
+            referencedTableName: foo

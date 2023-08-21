@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <parent>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-parent</artifactId>
+      <version>3.1.2</version>
+      <relativePath/> <!-- lookup parent from repository -->
+   </parent>
+   <groupId>com.example</groupId>
+   <artifactId>muliset-example</artifactId>
+   <version>0.0.1-SNAPSHOT</version>
+   <name>demo</name>
+   <description>Demo project for Spring Boot</description>
+   <properties>
+      <java.version>17</java.version>
+
+
+   </properties>
+
+
+   <dependencies>
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-autoconfigure</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-jdbc</artifactId>
+         <version>3.1.2</version>
+      </dependency>
+
+      <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-tx</artifactId>
+         <version>6.0.11</version>
+      </dependency>
+
+
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-test</artifactId>
+         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jooq.pro</groupId>
+         <artifactId>jooq</artifactId>
+         <version>3.18.4</version>
+      </dependency>
+
+
+      <dependency>
+         <groupId>org.liquibase</groupId>
+         <artifactId>liquibase-core</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>com.microsoft.sqlserver</groupId>
+         <artifactId>mssql-jdbc</artifactId>
+      </dependency>
+
+      <!-- Testcontainers dependencies -->
+      <dependency>
+         <groupId>org.testcontainers</groupId>
+         <artifactId>testcontainers</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.testcontainers</groupId>
+         <artifactId>mssqlserver</artifactId>
+         <scope>test</scope>
+      </dependency>
+
+
+   </dependencies>
+
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.codehaus.gmaven</groupId>
+            <artifactId>groovy-maven-plugin</artifactId>
+            <version>2.1.1</version>
+            <executions>
+               <execution>
+                  <id>testcontainer-start</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <source>
+                        db = new org.testcontainers.containers.MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()
+                        db.start()
+
+                        // set jdbc url during compile time since container gets a random port assigned
+                        project.properties.setProperty('db.url', db.getJdbcUrl())
+                        project.properties.setProperty('db.username', db.getUsername())
+                        project.properties.setProperty('db.password', db.getPassword())
+
+                        // Store containerId to
+                        project.properties.setProperty('testcontainer.containerId', db.getContainerId())
+                        project.properties.setProperty('testcontainer.imageName', db.getDockerImageName())
+                     </source>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>testcontainer-stop</id>
+                  <!--Mvn phase after generate-sources is process-sources. Stop container here to save resources-->
+                  <phase>process-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <source>
+                        containerId = "${testcontainer.containerId}"
+                        imageName = "${testcontainer.imageName}"
+                        println("Stopping testcontainer $containerId - $imageName")
+                        org.testcontainers.DockerClientFactory.instance().client().stopContainerCmd(containerId).exec()
+                     </source>
+                  </configuration>
+               </execution>
+            </executions>
+            <dependencies>
+               <dependency>
+                  <groupId>org.testcontainers</groupId>
+                  <artifactId>mssqlserver</artifactId>
+                  <version>1.18.3</version>
+               </dependency>
+               <dependency>
+                  <groupId>com.microsoft.sqlserver</groupId>
+                  <artifactId>mssql-jdbc</artifactId>
+                  <version>12.2.0.jre11</version>
+               </dependency>
+            </dependencies>
+         </plugin>
+         <plugin>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-maven-plugin</artifactId>
+            <version>4.20.0</version>
+            <executions>
+               <execution>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>update</goal>
+                  </goals>
+               </execution>
+            </executions>
+            <configuration>
+               <driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver>
+               <url>${db.url}</url>
+               <username>${db.username}</username>
+               <password>${db.password}</password>
+               <changeLogDirectory>${basedir}/src/main/resources/db/changelog</changeLogDirectory>
+               <changeLogFile>db.changelog-master.yaml</changeLogFile>
+            </configuration>
+            <dependencies>
+               <dependency>
+                  <groupId>com.microsoft.sqlserver</groupId>
+                  <artifactId>mssql-jdbc</artifactId>
+                  <version>12.2.0.jre11</version>
+               </dependency>
+            </dependencies>
+         </plugin>
+         <plugin>
+            <groupId>org.jooq.pro</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <version>3.18.4</version>
+            <executions>
+               <execution>
+                  <id>jooq-codegen</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>generate</goal>
+                  </goals>
+               </execution>
+            </executions>
+            <configuration>
+               <jdbc>
+                  <url>${db.url}</url>
+                  <user>${db.username}</user>
+                  <password>${db.password}</password>
+               </jdbc>
+               <generator>
+                  <name>org.jooq.codegen.JavaGenerator</name>
+                  <database>
+                     <inputCatalog>master</inputCatalog>
+                     <inputSchema>dbo</inputSchema>
+                     <outputCatalogToDefault>true</outputCatalogToDefault>
+                     <outputSchemaToDefault>true</outputSchemaToDefault>
+                     <catalogVersionProvider>${project.version}</catalogVersionProvider>
+                     <schemaVersionProvider>${project.version}</schemaVersionProvider>
+                     <name>org.jooq.meta.sqlserver.SQLServerDatabase</name>
+
+                     <forcedTypes>
+                        <!-- Use long for all ID columns -->
+                        <forcedType>
+                           <name>BIGINT</name>
+                           <includeExpression>.*?ID</includeExpression>
+                        </forcedType>
+                     </forcedTypes>
+                  </database>
+                  <target>
+                     <packageName>com.example.domain</packageName>
+                     <directory>target/generated-sources/java</directory>
+                  </target>
+               </generator>
+            </configuration>
+         </plugin>
+      </plugins>
+   </build>
+
+</project>
